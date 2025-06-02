@@ -16,29 +16,21 @@ RUN npm ci --only=production --ignore-scripts
 # Create the final stage
 FROM base
 
-# Install system dependencies and create wwebjs user
+# Install system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     fonts-freefont-ttf \
     chromium \
     ffmpeg && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    # Create wwebjs user and group with home directory
-    groupadd -r wwebjs && \
-    useradd -r -g wwebjs -m -d /home/wwebjs -s /bin/bash wwebjs && \
-    # Give ownership of the working directory to wwebjs user
-    chown -R wwebjs:wwebjs /usr/src/app
+    rm -rf /var/lib/apt/lists/*
 
 # Copy only production dependencies from deps stage
 COPY --from=deps /usr/src/app/node_modules ./node_modules
 
 # Copy application code
-COPY --chown=wwebjs:wwebjs . .
+COPY . .
 
 EXPOSE 3000
-
-# Use wwebjs user for better security
-USER wwebjs
 
 CMD ["npm", "start"]
