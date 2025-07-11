@@ -44,6 +44,10 @@ const doc = {
       success: true,
       message: 'Session initiated successfully'
     },
+    StopSessionResponse: {
+      success: true,
+      message: 'Session stopped successfully'
+    },
     StatusSessionResponse: {
       success: true,
       state: 'CONNECTED',

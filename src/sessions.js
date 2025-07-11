@@ -488,6 +488,33 @@ const reloadSession = async (sessionId) => {
   }
 }
 
+const destroySession = async (sessionId) => {
+  try {
+    const client = sessions.get(sessionId)
+    if (!client) {
+      return
+    }
+    client.pupPage?.removeAllListeners('close')
+    client.pupPage?.removeAllListeners('error')
+    try {
+      await terminateWebSocketServer(sessionId)
+    } catch (error) {
+      logger.error({ sessionId, err: error }, 'Failed to terminate WebSocket server')
+    }
+    await client.destroy()
+    // Wait 10 secs for client.pupBrowser to be disconnected
+    let maxDelay = 0
+    while (client.pupBrowser?.isConnected() && (maxDelay < 10)) {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      maxDelay++
+    }
+    sessions.delete(sessionId)
+  } catch (error) {
+    logger.error({ sessionId, err: error }, 'Failed to stop session')
+    throw error
+  }
+}
+
 const deleteSession = async (sessionId, validation) => {
   try {
     const client = sessions.get(sessionId)
@@ -554,5 +581,6 @@ module.exports = {
   validateSession,
   deleteSession,
   reloadSession,
-  flushSessions
+  flushSessions,
+  destroySession
 }

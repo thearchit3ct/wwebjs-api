@@ -38,6 +38,7 @@ routes.use('/session', sessionRouter)
 
 sessionRouter.get('/getSessions', sessionController.getSessions)
 sessionRouter.get('/start/:sessionId', middleware.sessionNameValidation, sessionController.startSession)
+sessionRouter.get('/stop/:sessionId', middleware.sessionNameValidation, sessionController.stopSession)
 sessionRouter.get('/status/:sessionId', middleware.sessionNameValidation, sessionController.statusSession)
 sessionRouter.get('/qr/:sessionId', middleware.sessionNameValidation, sessionController.sessionQrCode)
 sessionRouter.get('/qr/:sessionId/image', middleware.sessionNameValidation, sessionController.sessionQrCodeImage)

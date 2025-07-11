@@ -1,5 +1,5 @@
 const qr = require('qr-image')
-const { setupSession, deleteSession, reloadSession, validateSession, flushSessions, sessions } = require('../sessions')
+const { setupSession, deleteSession, reloadSession, validateSession, flushSessions, destroySession, sessions } = require('../sessions')
 const { sendErrorResponse, waitForNestedObject } = require('../utils')
 const { logger } = require('../logger')
 
@@ -47,6 +47,39 @@ const startSession = async (req, res) => {
     res.json({ success: true, message: setupSessionReturn.message })
   } catch (error) {
     logger.error({ sessionId, err: error }, 'Failed to start session')
+    sendErrorResponse(res, 500, error.message)
+  }
+}
+
+/**
+ * Stops a session for the given session ID.
+ *
+ * @function
+ * @async
+ * @param {Object} req - The HTTP request object.
+ * @param {Object} res - The HTTP response object.
+ * @param {string} req.params.sessionId - The session ID to stop.
+ * @returns {Promise<void>}
+ * @throws {Error} If there was an error stopping the session.
+ */
+const stopSession = async (req, res) => {
+  // #swagger.summary = 'Stop session'
+  // #swagger.description = 'Stops a session for the given session ID.'
+  const sessionId = req.params.sessionId
+  try {
+    await destroySession(sessionId)
+    /* #swagger.responses[200] = {
+      description: "Status of the stopped session.",
+      content: {
+        "application/json": {
+          schema: { "$ref": "#/definitions/StopSessionResponse" }
+        }
+      }
+    }
+    */
+    res.json({ success: true, message: 'Session stopped successfully' })
+  } catch (error) {
+    logger.error({ sessionId, err: error }, 'Failed to stop session')
     sendErrorResponse(res, 500, error.message)
   }
 }
@@ -417,6 +450,7 @@ const getPageScreenshot = async (req, res) => {
 
 module.exports = {
   startSession,
+  stopSession,
   statusSession,
   sessionQrCode,
   sessionQrCodeImage,
