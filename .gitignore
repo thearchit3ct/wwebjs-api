@@ -18,3 +18,10 @@ coverage
 # Ignore other unnecessary files
 .DS_Store
 .vscode
+.claude/*
+CLAUDE.md
+nginx-api-proxy.conf
+
+*.log
+docs/*
+one/*

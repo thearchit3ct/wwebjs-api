@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  SUPPORT
+  VIEWER
+}
+
+enum PermissionResource {
+  USERS
+  SESSIONS
+  SYSTEM
+  ANALYTICS
+  LOGS
+  BILLING
+  ROLES
+  SETTINGS
+}
+
+enum PermissionAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  EXECUTE
+}
+
+model Admin {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  passwordHash      String
+  name              String
+  role              AdminRole @default(VIEWER)
+  roleId            String?
+  isActive          Boolean   @default(true)
+  twoFactorEnabled  Boolean   @default(false)
+  twoFactorSecret   String?
+  lastLogin         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  permissions       Permission[]
+  loginLogs         AdminLoginLog[]
+  auditLogs         AdminAuditLog[]
+  sessions          AdminSession[]
+  customRole        Role?     @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  
+  @@index([email])
+  @@index([role])
+  @@index([roleId])
+}
+
+model Permission {
+  id        String              @id @default(cuid())
+  adminId   String
+  resource  PermissionResource
+  action    PermissionAction
+  granted   Boolean             @default(true)
+  createdAt DateTime            @default(now())
+  
+  admin     Admin               @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  
+  @@unique([adminId, resource, action])
+  @@index([adminId])
+}
+
+model AdminSession {
+  id          String   @id @default(cuid())
+  adminId     String
+  token       String   @unique
+  ipAddress   String
+  userAgent   String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  lastUsed    DateTime @default(now())
+  
+  admin       Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  
+  @@index([token])
+  @@index([adminId])
+  @@index([expiresAt])
+}
+
+model AdminLoginLog {
+  id          String   @id @default(cuid())
+  adminId     String?
+  email       String
+  ipAddress   String
+  userAgent   String
+  success     Boolean
+  reason      String?
+  createdAt   DateTime @default(now())
+  
+  admin       Admin?   @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  
+  @@index([adminId])
+  @@index([email])
+  @@index([createdAt])
+}
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  adminId     String
+  action      String
+  resource    String
+  resourceId  String?
+  changes     Json?
+  ipAddress   String
+  userAgent   String
+  createdAt   DateTime @default(now())
+  
+  admin       Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  
+  @@index([adminId])
+  @@index([resource])
+  @@index([createdAt])
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  name            String
+  apiKey          String    @unique
+  status          String    @default("active")
+  plan            String    @default("free")
+  maxSessions     Int       @default(1)
+  maxMessages     Int       @default(1000)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  sessions        Session[]
+  usage           Usage[]
+  
+  @@index([email])
+  @@index([apiKey])
+}
+
+model Session {
+  id              String    @id @default(cuid())
+  userId          String
+  sessionId       String    @unique
+  name            String
+  phoneNumber     String?
+  status          String    @default("disconnected")
+  webhookUrl      String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  lastActivity    DateTime?
+  
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  metrics         SessionMetric[]
+  
+  @@index([userId])
+  @@index([sessionId])
+  @@index([status])
+}
+
+model SessionMetric {
+  id              String    @id @default(cuid())
+  sessionId       String
+  messagesSent    Int       @default(0)
+  messagesReceived Int      @default(0)
+  errors          Int       @default(0)
+  uptime          Int       @default(0)
+  timestamp       DateTime  @default(now())
+  
+  session         Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@index([sessionId])
+  @@index([timestamp])
+}
+
+model Usage {
+  id              String    @id @default(cuid())
+  userId          String
+  date            DateTime  @db.Date
+  messagesSent    Int       @default(0)
+  messagesReceived Int      @default(0)
+  apiCalls        Int       @default(0)
+  bandwidth       BigInt    @default(0)
+  
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([key])
+}
+
+model Role {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  isActive    Boolean   @default(true)
+  isSystem    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  admins      Admin[]
+  permissions RolePermission[]
+  
+  @@index([name])
+}
+
+model AdminPermission {
+  id          String              @id @default(cuid())
+  name        String
+  description String?
+  resource    String
+  action      String
+  createdAt   DateTime            @default(now())
+  
+  roles       RolePermission[]
+  
+  @@unique([resource, action])
+  @@index([resource])
+}
+
+model RolePermission {
+  id           String    @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime  @default(now())
+  
+  role         Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   AdminPermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}

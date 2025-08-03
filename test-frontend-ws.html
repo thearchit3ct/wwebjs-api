@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <div id="status">Connecting...</div>
+    <div id="messages"></div>
+    
+    <script>
+        // Replace with your actual token
+        const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNtZHNzaDM4bDAwMDB4aml0bm90cnp3YmQiLCJlbWFpbCI6ImFkbWluQHd3ZWJqcy5jb20iLCJyb2xlIjoiU1VQRVJfQURNSU4iLCJzZXNzaW9uSWQiOiJjbWR1YTlzdDAwMDBkeGo4cnBvazBoNnJzIiwiaWF0IjoxNzU0MTQxMDE5LCJleHAiOjE3NTQxNjk4MTl9.3mzOfDwjOTZfAMqkVWfOGcx1TpEzy-Y0Q8hlb01xJzQ';
+        
+        const ws = new WebSocket(`ws://95.216.147.29:3050/api/admin/websocket?token=${token}`);
+        
+        ws.onopen = () => {
+            document.getElementById('status').textContent = 'Connected!';
+            console.log('WebSocket connected');
+            
+            // Send a ping
+            ws.send(JSON.stringify({ type: 'ping' }));
+        };
+        
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            console.log('Received:', data);
+            
+            const messagesDiv = document.getElementById('messages');
+            const messageElement = document.createElement('div');
+            messageElement.textContent = `${new Date().toLocaleTimeString()}: ${data.type} - ${JSON.stringify(data.data || {})}`;
+            messagesDiv.appendChild(messageElement);
+        };
+        
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            document.getElementById('status').textContent = 'Error!';
+        };
+        
+        ws.onclose = () => {
+            console.log('WebSocket closed');
+            document.getElementById('status').textContent = 'Disconnected';
+        };
+    </script>
+</body>
+</html>

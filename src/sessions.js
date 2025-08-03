@@ -7,6 +7,14 @@ const { triggerWebhook, waitForNestedObject, isEventEnabled, sendMessageSeenStat
 const { logger } = require('./logger')
 const { initWebSocketServer, terminateWebSocketServer, triggerWebSocket } = require('./websocket')
 
+// Import metrics if available
+let metrics = null
+try {
+  metrics = require('./routes/metrics').metrics
+} catch (error) {
+  // Metrics not available
+}
+
 // Function to validate if the session is ready
 const validateSession = async (sessionId) => {
   try {
@@ -230,6 +238,10 @@ const initializeEvents = (client, sessionId) => {
     client.on('authenticated', () => {
       triggerWebhook(sessionWebhook, sessionId, 'authenticated')
       triggerWebSocket(sessionId, 'authenticated')
+      // Record session start metric
+      if (metrics) {
+        metrics.sessionStartsTotal.inc({ auth_type: 'qr' })
+      }
     })
   }
 
@@ -251,6 +263,10 @@ const initializeEvents = (client, sessionId) => {
     client.on('disconnected', (reason) => {
       triggerWebhook(sessionWebhook, sessionId, 'disconnected', { reason })
       triggerWebSocket(sessionId, 'disconnected', { reason })
+      // Record session failure metric
+      if (metrics) {
+        metrics.sessionFailuresTotal.inc({ reason: reason || 'unknown' })
+      }
     })
   }
 
@@ -307,6 +323,13 @@ const initializeEvents = (client, sessionId) => {
     if (isEventEnabled('message')) {
       triggerWebhook(sessionWebhook, sessionId, 'message', { message })
       triggerWebSocket(sessionId, 'message', { message })
+      // Record message metric
+      if (metrics) {
+        metrics.messagesProcessedTotal.inc({ 
+          type: message.hasMedia ? 'media' : 'text', 
+          direction: 'incoming' 
+        })
+      }
       if (message.hasMedia && message._data?.size < maxAttachmentSize) {
       // custom service event
         if (isEventEnabled('media')) {
@@ -574,6 +597,13 @@ const flushSessions = async (deleteOnlyInactive) => {
   }
 }
 
+// Functions for admin API integration
+const getAllSessions = () => sessions
+const getSession = (sessionId) => sessions.get(sessionId)
+const startSession = async (sessionId, options = {}) => {
+  return await setupSession(sessionId, options.webhook?.url)
+}
+
 module.exports = {
   sessions,
   setupSession,
@@ -582,5 +612,8 @@ module.exports = {
   deleteSession,
   reloadSession,
   flushSessions,
-  destroySession
+  destroySession,
+  getAllSessions,
+  getSession,
+  startSession
 }

@@ -2,12 +2,37 @@ const axios = require('axios')
 const { globalApiKey, disabledCallbacks, enableWebHook } = require('./config')
 const { logger } = require('./logger')
 
+// Import metrics if available
+let metrics = null
+try {
+  metrics = require('./routes/metrics').metrics
+} catch (error) {
+  // Metrics not available
+}
+
 // Trigger webhook endpoint
 const triggerWebhook = (webhookURL, sessionId, dataType, data) => {
   if (enableWebHook) {
+    const startTime = Date.now()
+    if (metrics) {
+      metrics.webhookRequestsTotal.inc({ event_type: dataType })
+    }
     axios.post(webhookURL, { dataType, data, sessionId }, { headers: { 'x-api-key': globalApiKey } })
-      .then(() => logger.debug({ sessionId, dataType, data: data || '' }, `Webhook message sent to ${webhookURL}`))
-      .catch(error => logger.error({ sessionId, dataType, err: error, data: data || '' }, `Failed to send webhook message to ${webhookURL}`))
+      .then(() => {
+        const duration = (Date.now() - startTime) / 1000
+        logger.debug({ sessionId, dataType, data: data || '' }, `Webhook message sent to ${webhookURL}`)
+        if (metrics) {
+          metrics.webhookDuration.observe({ event_type: dataType }, duration)
+        }
+      })
+      .catch(error => {
+        const duration = (Date.now() - startTime) / 1000
+        logger.error({ sessionId, dataType, err: error, data: data || '' }, `Failed to send webhook message to ${webhookURL}`)
+        if (metrics) {
+          metrics.webhookFailuresTotal.inc({ event_type: dataType, status_code: error.response?.status || 0 })
+          metrics.webhookDuration.observe({ event_type: dataType }, duration)
+        }
+      })
   }
 }
 
